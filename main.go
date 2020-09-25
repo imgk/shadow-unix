@@ -4,14 +4,9 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -96,6 +91,6 @@ func main() {
 			}
 		}
 		os.Exit(777)
-	case <-app.Done:
+	case <-app.Done():
 	}
 }
