@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,28 +15,39 @@ import (
 
 	"github.com/getlantern/systray"
 
+	//protocols
+	_ "github.com/imgk/shadow/protocol/http"
+	_ "github.com/imgk/shadow/protocol/shadowsocks"
+	_ "github.com/imgk/shadow/protocol/socks"
+	_ "github.com/imgk/shadow/protocol/trojan"
+
 	"github.com/imgk/shadow/app"
 )
 
 func main() {
-	mode := flag.Bool("v", false, "enable verbose mode")
-	file := flag.String("c", "", "config file")
+	var conf struct {
+		Mode bool
+		File string
+	}
+	flag.BoolVar(&conf.Mode, "v", false, "enable verbose mode")
+	flag.StringVar(&conf.File, "c", "", "config file")
 	flag.Parse()
 
-	if *file == "" {
+	if conf.File == "" {
 		dir, err := os.UserHomeDir()
 		if err != nil {
 			panic(err)
 		}
-		*file = filepath.Join(dir, ".config", "shadow", "config.json")
+		conf.File = filepath.Join(dir, ".config", "shadow", "config.json")
 	}
 
-	app, err := app.NewApp(*file, time.Minute)
+	w := io.Writer(nil)
+	if conf.Mode {
+		w = os.Stdout
+	}
+	app, err := app.NewApp(conf.File, time.Minute, w)
 	if err != nil {
 		panic(err)
-	}
-	if *mode {
-		app.SetWriter(os.Stdout)
 	}
 
 	if err := app.Run(); err != nil {
