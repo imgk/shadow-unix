@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"time"
 
@@ -36,7 +38,7 @@ func main() {
 	if conf.File == "" {
 		dir, err := os.UserHomeDir()
 		if err != nil {
-			panic(err)
+			log.Panic(err)
 		}
 		conf.File = filepath.Join(dir, ".config", "shadow", "config.json")
 	}
@@ -47,43 +49,48 @@ func main() {
 	}
 	app, err := app.NewApp(conf.File, time.Minute, w)
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	if err := app.Run(); err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	fmt.Println("shadow - a transparent proxy for Windows, Linux and macOS")
 	fmt.Println("shadow is running...")
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, os.Interrupt, os.Kill)
 
 	systray.Run(func() {
 		systray.SetIcon(icon)
 		systray.SetTitle("")
 		systray.SetTooltip("Shadow")
 
-		mQuit := systray.AddMenuItem("Exit", "Quit Shadow")
-		go func () {
-			sigCh := make(chan os.Signal, 1)
-			signal.Notify(sigCh, os.Interrupt, os.Kill)
-			for {
-				select {
-				case <-mQuit.ClickedCh:
-					systray.Quit()
-					return
-				case <-sigCh:
-					systray.Quit()
-					return
-				}
-			}
-		}()
-	}, func(){
-		fmt.Println("shadow is closing...")
-		app.Close()
-	})
+		items := make([]item, 0, 2)
 
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, os.Interrupt, os.Kill)
+		items = append(items, item{
+			condition: reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(sigCh),
+			},
+			function:  systray.Quit,
+			terminate: true,
+		})
+
+		mQuit := systray.AddMenuItem("Exit", "Quit Shadow")
+		items = append(items, item{
+			condition: reflect.SelectCase{
+				Dir:  reflect.SelectRecv,
+				Chan: reflect.ValueOf(mQuit.ClickedCh),
+			},
+			function:  systray.Quit,
+			terminate: true,
+		})
+
+		go runSelect(items)
+	}, app.Close)
+
+	fmt.Println("shadow is closing...")
 	select {
 	case <-time.After(time.Second * 10):
 		buf := make([]byte, 1024)
@@ -104,5 +111,27 @@ func main() {
 		}
 		os.Exit(777)
 	case <-app.Done():
+	}
+}
+
+type item struct {
+	condition reflect.SelectCase
+	function  func()
+	terminate bool
+}
+
+func runSelect(items []item) {
+	cases := make([]reflect.SelectCase, len(items))
+	for i, _ := range items {
+		cases[i] = items[i].condition
+	}
+	for {
+		i, _, _ := reflect.Select(cases)
+		if item := items[i]; item.terminate {
+			item.function()
+			return
+		} else {
+			item.function()
+		}
 	}
 }
