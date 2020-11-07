@@ -87,7 +87,7 @@ func main() {
 			terminate: true,
 		})
 
-		go runSelect(items)
+		go run(items)
 	}, app.Close)
 
 	fmt.Println("shadow is closing...")
@@ -120,7 +120,7 @@ type item struct {
 	terminate bool
 }
 
-func runSelect(items []item) {
+func run(items []item) {
 	cases := make([]reflect.SelectCase, len(items))
 	for i, _ := range items {
 		cases[i] = items[i].condition
