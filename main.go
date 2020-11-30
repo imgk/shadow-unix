@@ -88,7 +88,7 @@ func main() {
 		})
 
 		go run(items)
-	}, app.Close)
+	}, func() { app.Close() })
 
 	fmt.Println("shadow is closing...")
 	select {
