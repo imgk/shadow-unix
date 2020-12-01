@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -43,7 +44,7 @@ func main() {
 		conf.File = filepath.Join(dir, ".config", "shadow", "config.json")
 	}
 
-	w := io.Writer(nil)
+	w := io.Writer(ioutil.Discard)
 	if conf.Mode {
 		w = os.Stdout
 	}
@@ -67,7 +68,7 @@ func main() {
 		items := make([]item, 0, 2)
 
 		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, os.Interrupt, os.Kill)
+		signal.Notify(sigCh, os.Interrupt)
 		items = append(items, item{
 			condition: reflect.SelectCase{
 				Dir:  reflect.SelectRecv,
