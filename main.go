@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -19,36 +18,37 @@ import (
 	"github.com/getlantern/systray"
 
 	//protocols
-	_ "github.com/imgk/shadow/protocol/http"
-	_ "github.com/imgk/shadow/protocol/shadowsocks"
-	_ "github.com/imgk/shadow/protocol/socks"
-	_ "github.com/imgk/shadow/protocol/trojan"
+	_ "github.com/imgk/shadow/proto/register"
 
 	"github.com/imgk/shadow/app"
 )
 
 func main() {
-	var conf struct {
-		Mode bool
-		File string
+	type FlagConfig struct {
+		Verbose  bool
+		FilePath string
+		Timeout  time.Duration
 	}
-	flag.BoolVar(&conf.Mode, "v", false, "enable verbose mode")
-	flag.StringVar(&conf.File, "c", "", "config file")
+
+	conf := FlagConfig{}
+	flag.BoolVar(&conf.Verbose, "v", false, "enable verbose mode")
+	flag.StringVar(&conf.FilePath, "c", "", "config file")
+	flag.DurationVar(&conf.Timeout, "t", time.Minute*3, "timeout")
 	flag.Parse()
 
-	if conf.File == "" {
+	if conf.FilePath == "" {
 		dir, err := os.UserHomeDir()
 		if err != nil {
 			log.Panic(err)
 		}
-		conf.File = filepath.Join(dir, ".config", "shadow", "config.json")
+		conf.FilePath = filepath.Join(dir, ".config", "shadow", "config.json")
 	}
 
-	w := io.Writer(ioutil.Discard)
-	if conf.Mode {
+	w := io.Writer(nil)
+	if conf.Verbose {
 		w = os.Stdout
 	}
-	app, err := app.NewApp(conf.File, time.Minute, w)
+	app, err := app.NewApp(conf.FilePath, conf.Timeout, w)
 	if err != nil {
 		log.Panic(err)
 	}
